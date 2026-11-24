@@ -11,9 +11,8 @@ A momentum paper-trading bot for pump.fun bonding curves, entered in the
 
 Most new coins spike early and then bleed out, so the bot buys only after a coin
 has already shown real upward momentum with buy pressure, rides the pump with a
-take-profit (+22% over all-in cost) and a trailing stop, and cuts losers fast
-with a hard stop (-7%). It never chases a coin that is already far gone, never
-holds a dead coin (stale exit after 400 quiet slots), and risks a small fixed
+take-profit (+30% over all-in cost) and a hard stop (-15%). It never chases a coin
+that is already far gone, never holds a dead coin (stale exit after 400 quiet slots), and risks a small fixed
 size (0.05 SOL) per coin, at most 5 open positions.
 
 Everything is paper money on a replay of chain data. Every decision comes from

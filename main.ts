@@ -7,9 +7,9 @@
 // coin in its first few trades, near its create price, with a take-profit above
 // and a hard stop below. So the bot snipes young coins — first 10 trades,
 // price still within 1.4x of create, real reserves already big enough for a
-// real buy — and exits on take-profit (+30% over all-in cost), a trailing stop,
-// a hard stop (-10%), or staleness. One shot per coin: once a coin has been
-// traded the early edge is gone and it is never re-entered.
+// real buy — and exits on take-profit (+30% over all-in cost), a hard stop
+// (-15%), or staleness. One shot per coin: once a coin has been traded the
+// early edge is gone and it is never re-entered.
 //
 // Money is paper only: the bot trades a replay of chain data, starts with 10 SOL
 // of paper cash, and every decision comes from the replay events alone. It reads
@@ -36,12 +36,9 @@ const MAX_ENTRY_TRADES = 10;
 const MAX_ENTRY_MULTIPLE_BPS = 14_000;
 /** Take profit: this much (bps) above the all-in cost per token. */
 const TAKE_PROFIT_BPS = 3000;
-/** Hard stop: this much (bps) below the all-in cost per token. */
-const STOP_LOSS_BPS = 1000;
-/** Trailing stop arms once the gain reaches this (bps). */
-const TRAIL_ARM_BPS = 1500;
-/** Trailing stop sells this many bps below the peak gain. */
-const TRAIL_DROP_BPS = 800;
+/** Hard stop: this much (bps) below the all-in cost per token. Wide enough
+ *  that a coin dipping before it pumps is not sold at the bottom. */
+const STOP_LOSS_BPS = 1500;
 /** Buys in the last 3 trades needed for buy pressure. */
 const PRESSURE_WINDOW = 3;
 const PRESSURE_BUYS = 2;
@@ -73,8 +70,6 @@ interface Coin {
   lastBuys: boolean[];
   /** True once this bot has bought the coin (one shot per coin). */
   bought: boolean;
-  /** Peak gain over entry cost while holding, in bps. */
-  peakBps: number;
   /** Slot the current position was opened (first seen held). */
   entrySlot: number;
 }
@@ -91,7 +86,6 @@ function coinFor(mint: string): Coin {
       lastTradeSlot: -1,
       lastBuys: [],
       bought: false,
-      peakBps: 0,
       entrySlot: -1,
     };
     coins.set(mint, c);
@@ -184,19 +178,14 @@ await runBot({
 
       if (c.entrySlot < 0) {
         c.entrySlot = slot;
-        c.peakBps = gainBps;
-      } else if (gainBps > c.peakBps) {
-        c.peakBps = gainBps;
       }
 
       const stale = slot - c.lastTradeSlot > STALE_SLOTS;
       const tooLong = slot - c.entrySlot > MAX_HOLD_SLOTS;
       const takeProfit = gainBps >= TAKE_PROFIT_BPS;
       const stopLoss = gainBps <= -STOP_LOSS_BPS;
-      const trailing =
-        c.peakBps >= TRAIL_ARM_BPS && gainBps <= c.peakBps - TRAIL_DROP_BPS;
 
-      if (takeProfit || stopLoss || trailing || stale || tooLong) {
+      if (takeProfit || stopLoss || stale || tooLong) {
         orders.push({
           side: "sell",
           mint,
@@ -205,7 +194,6 @@ await runBot({
         });
         stats.sellsSent++;
         c.entrySlot = -1;
-        c.peakBps = 0;
       }
     }
 
